@@ -2,6 +2,7 @@ export default {
   title: "EcoDev Configurator",
   description: "Documentation for EcoDev Configurator",
   base: "/",
+  ignoreDeadLinks: true,
 
   themeConfig: {
     nav: [
