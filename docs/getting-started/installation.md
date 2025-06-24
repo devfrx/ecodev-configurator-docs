@@ -1,106 +1,432 @@
-# Project Overview
+# Installation Guide
 
-Welcome to the documentation for the **EcoDev Configurator**. This project is designed to provide a comprehensive solution for configuring eco-friendly systems. This documentation will guide you through the project structure, its functions, and how to set it up for viewing and launching.
+This guide provides detailed instructions for installing and configuring the EcoDev Configurator in different environments.
 
 ## Table of Contents
 
-- [Project Structure](#project-structure)
-- [Functions](#functions)
-- [Getting Started](#getting-started)
-- [Viewing the Documentation](#viewing-the-documentation)
-- [Launching the Project](#launching-the-project)
+- [System Requirements](#system-requirements)
+- [Development Installation](#development-installation)
+- [Production Deployment](#production-deployment)
+- [Environment Configuration](#environment-configuration)
+- [Odoo Backend Setup](#odoo-backend-setup)
+- [Troubleshooting](#troubleshooting)
 
-## Project Structure
+## System Requirements
 
-The project is organized into the following main directories:
+### Development Environment
 
-```
-/docs
-  ├── getting-started
-  │   └── index.md
-  ├── components
-  │   └── [ComponentName].md
-  ├── guides
-  │   └── [GuideName].md
-  ├── api
-  │   └── [APIReference].md
-  └── index.md
-```
+- **Node.js**: Version 18.0 or higher
+- **npm**: Version 9.0 or higher (comes with Node.js)
+- **Git**: For version control
+- **Code Editor**: VS Code recommended with Vue.js extensions
 
-- **/docs**: The root directory for all documentation files.
-- **/getting-started**: Contains introductory materials and setup instructions.
-- **/components**: Documentation for individual components used in the project.
-- **/guides**: Step-by-step guides for using various features of the project.
-- **/api**: API references and technical details for developers.
+### Production Environment
 
-## Functions
+- **Web Server**: Nginx, Apache, or similar
+- **HTTPS**: Required for production deployment
+- **Domain**: Configured domain with SSL certificate
 
-The EcoDev Configurator provides the following key functions:
+### Browser Support
 
-- **Configuration Management**: Easily manage and configure eco-friendly systems.
-- **User Interface**: A user-friendly interface for seamless interaction.
-- **Data Visualization**: Tools for visualizing data related to eco-friendly configurations.
-- **API Integration**: Connect with external APIs for enhanced functionality.
+- **Chrome**: Version 90+
+- **Firefox**: Version 88+
+- **Safari**: Version 14+
+- **Edge**: Version 90+
+- **Mobile**: iOS Safari 14+, Android Chrome 90+
 
-## Getting Started
+## Development Installation
 
-To get started with the EcoDev Configurator, follow these steps:
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/ecodev-configurator.git
-   cd ecodev-configurator
-   ```
-
-2. **Install Dependencies**:
-   Make sure you have Node.js installed, then run:
-   ```bash
-   npm install
-   ```
-
-3. **Build the Documentation**:
-   To build the documentation, run:
-   ```bash
-   npm run docs:build
-   ```
-
-## Viewing the Documentation
-
-To view the documentation locally, you can use the following command:
+### 1. Clone Repository
 
 ```bash
-npm run docs:dev
+# Clone the project repository
+git clone <repository-url>
+cd configurator-ecoctrl
+
+# Verify Node.js version
+node --version  # Should be 18.0+
+npm --version   # Should be 9.0+
 ```
 
-This will start a local development server, and you can view the documentation in your browser at `http://localhost:3000`.
+### 2. Install Dependencies
 
-## Launching the Project
+```bash
+# Install all project dependencies
+npm install
 
-To launch the EcoDev Configurator, follow these steps:
+# If you encounter permission issues on macOS/Linux:
+sudo npm install
 
-1. **Build the Project**:
-   ```bash
-   npm run build
-   ```
-
-2. **Start the Application**:
-   ```bash
-   npm start
-   ```
-
-3. **Access the Application**:
-   Open your browser and navigate to `http://localhost:3000` to access the EcoDev Configurator.
-
-## Conclusion
-
-This documentation provides a comprehensive overview of the EcoDev Configurator project. For more detailed information on specific components or guides, please refer to the respective sections in the documentation.
-
-If you have any questions or need further assistance, feel free to reach out to the project maintainers.
+# Alternative using yarn (if preferred):
+yarn install
 ```
 
-### Instructions for Use
-1. Replace placeholders like `[ComponentName]`, `[GuideName]`, and `[APIReference]` with actual names relevant to your project.
-2. Update the GitHub repository URL in the "Clone the Repository" section.
-3. Add any additional sections or details that are specific to your project as needed.
+### 3. Environment Setup
 
-This template should serve as a solid foundation for your VitePress documentation.
+Create environment files for different configurations:
+
+```bash
+# Create development environment file
+cp .env.example .env
+
+# Edit the environment file
+nano .env  # or use your preferred editor
+```
+
+### 4. Configure Environment Variables
+
+```bash
+# .env - Development Configuration
+VITE_API_BASE_URL=http://localhost:8069
+VITE_DATABASE=dev_database
+
+# Optional development settings
+NODE_ENV=development
+VITE_DEBUG=true
+```
+
+### 5. Start Development Server
+
+```bash
+# Start the development server with hot reload
+npm run dev
+
+# Alternative start command
+npm start
+
+# Server will be available at:
+# Local:   http://localhost:5173
+# Network: http://192.168.x.x:5173
+```
+
+### 6. Verify Installation
+
+1. Open browser to `http://localhost:5173`
+2. You should see the EcoDev Configurator login page
+3. Check browser console for any errors
+4. Test basic navigation (may show connection errors without Odoo)
+
+## Production Deployment
+
+### 1. Build Application
+
+```bash
+# Create optimized production build
+npm run build
+
+# The build output will be in the `dist/` directory
+# Files are minified and optimized for production
+```
+
+### 2. Configure Production Environment
+
+```bash
+# .env.production
+VITE_API_BASE_URL=https://your-odoo-domain.com
+VITE_DATABASE=production_database
+NODE_ENV=production
+```
+
+### 3. Web Server Configuration
+
+#### Nginx Configuration
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /path/to/certificate.crt;
+    ssl_certificate_key /path/to/private.key;
+
+    root /path/to/configurator-ecoctrl/dist;
+    index index.html;
+
+    # Handle Vue Router history mode
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+}
+```
+
+#### Apache Configuration
+
+```apache
+<VirtualHost *:80>
+    ServerName your-domain.com
+    Redirect permanent / https://your-domain.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName your-domain.com
+    DocumentRoot /path/to/configurator-ecoctrl/dist
+
+    SSLEngine on
+    SSLCertificateFile /path/to/certificate.crt
+    SSLCertificateKeyFile /path/to/private.key
+
+    # Handle Vue Router history mode
+    <Directory "/path/to/configurator-ecoctrl/dist">
+        RewriteEngine On
+        RewriteBase /
+        RewriteRule ^index\.html$ - [L]
+        RewriteCond %{REQUEST_FILENAME} !-f
+        RewriteCond %{REQUEST_FILENAME} !-d
+        RewriteRule . /index.html [L]
+    </Directory>
+
+    # Cache static files
+    <LocationMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">
+        ExpiresActive On
+        ExpiresDefault "access plus 1 year"
+    </LocationMatch>
+</VirtualHost>
+```
+
+### 4. Deploy to Server
+
+```bash
+# Copy built files to web server
+scp -r dist/* user@your-server:/path/to/web/root/
+
+# Or using rsync
+rsync -avz dist/ user@your-server:/path/to/web/root/
+
+# Set proper permissions
+chmod -R 644 /path/to/web/root/*
+chmod 755 /path/to/web/root
+```
+
+## Environment Configuration
+
+### Environment Variables Reference
+
+| Variable            | Description        | Example                    | Required |
+| ------------------- | ------------------ | -------------------------- | -------- |
+| `VITE_API_BASE_URL` | Odoo server URL    | `https://odoo.company.com` | Yes      |
+| `VITE_DATABASE`     | Odoo database name | `production_db`            | Yes      |
+| `NODE_ENV`          | Environment mode   | `production`               | No       |
+
+### Configuration Files
+
+#### Development (`vite.config.js`)
+
+```javascript
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import { resolve } from "path";
+
+export default defineConfig({
+  plugins: [vue()],
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "src"),
+    },
+  },
+  server: {
+    port: 5173,
+    host: true, // Allow external connections
+  },
+});
+```
+
+#### Production Optimization
+
+```javascript
+// vite.config.js - Production optimizations
+export default defineConfig({
+  plugins: [vue()],
+  build: {
+    minify: "terser",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["vue", "vue-router", "pinia"],
+          ionic: ["@ionic/vue"],
+          pdf: ["pdfmake"],
+        },
+      },
+    },
+  },
+});
+```
+
+## Odoo Backend Setup
+
+### Required Models
+
+The application requires these custom Odoo models:
+
+```python
+# Custom models that must be installed in Odoo
+x_product_categories      # Product categories
+x_supercategories        # Supercategories
+x_steps                  # Configuration steps
+x_options                # Configuration options
+x_constraints            # Option constraints
+x_rules                  # Business rules
+```
+
+### User Permissions
+
+Configure Odoo user with these permissions:
+
+```yaml
+Read Access:
+  - x_product_categories
+  - x_supercategories
+  - x_steps
+  - x_options
+  - x_constraints
+  - x_rules
+  - sale.order
+  - res.partner
+
+Write Access:
+  - sale.order
+  - sale.order.line
+  - res.partner
+  - product.product
+  - product.template
+```
+
+### API Endpoints
+
+Ensure these Odoo endpoints are accessible:
+
+```bash
+# Authentication
+POST /web/session/authenticate
+POST /web/session/get_session_info
+POST /web/session/destroy
+
+# Data access
+POST /web/dataset/call_kw/{model}/{method}
+
+# File upload
+POST /web/binary/upload_attachment
+```
+
+## Troubleshooting
+
+### Common Installation Issues
+
+#### Node.js Version Conflicts
+
+```bash
+# Check current version
+node --version
+
+# Use Node Version Manager (nvm)
+nvm install 18
+nvm use 18
+```
+
+#### npm Installation Errors
+
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+#### Port Already in Use
+
+```bash
+# Find process using port 5173
+lsof -ti:5173
+
+# Kill the process
+kill -9 <PID>
+
+# Or use different port
+npm run dev -- --port 3000
+```
+
+### Development Issues
+
+#### CORS Errors
+
+If you encounter CORS errors during development:
+
+```javascript
+// vite.config.js - Add proxy for development
+export default defineConfig({
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://your-odoo-server:8069",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+});
+```
+
+#### Environment Variables Not Loading
+
+```bash
+# Ensure .env file is in project root
+ls -la .env
+
+# Check file permissions
+chmod 644 .env
+
+# Verify variable names start with VITE_
+echo $VITE_API_BASE_URL
+```
+
+### Production Issues
+
+#### Static Files Not Found
+
+```bash
+# Verify build output
+ls -la dist/
+
+# Check web server document root
+# Ensure all files are properly uploaded
+```
+
+#### HTTPS/SSL Issues
+
+```bash
+# Test SSL certificate
+openssl s_client -connect your-domain.com:443
+
+# Verify certificate chain
+ssl-checker your-domain.com
+```
+
+### Getting Help
+
+If you encounter issues not covered here:
+
+1. Check the browser console for error details
+2. Review the network tab for failed requests
+3. Verify Odoo server accessibility
+4. Check file permissions and ownership
+5. Consult the API documentation for backend issues
+
+For additional support, contact the development team or check the project repository for known issue

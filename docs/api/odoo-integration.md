@@ -1,127 +1,291 @@
-# Project Overview
+# Odoo Integration Documentation
 
-Welcome to the **EcoDev Configurator** documentation! This guide will help you understand the structure of the project, its functions, and how to set it up for viewing and launching.
+This document provides a comprehensive overview of how the EcoDev Configurator application integrates with the Odoo ERP system for product configuration, quote management, and data operations.
 
-## Table of Contents
+## Overview
 
-- [Introduction](#introduction)
-- [Project Structure](#project-structure)
-- [Functions](#functions)
-- [Getting Started](#getting-started)
-- [Viewing the Documentation](#viewing-the-documentation)
-- [Launching the Project](#launching-the-project)
-- [Contributing](#contributing)
-- [License](#license)
+The application uses Odoo as its backend system through JSON-RPC API calls, implementing a modern web-based product configurator that interacts with custom Odoo models for managing product categories, configuration steps, options, and sales quotes.
 
-## Introduction
+## Architecture
 
-The EcoDev Configurator is designed to streamline the configuration process for eco-friendly projects. This documentation provides a comprehensive overview of the project structure and its functionalities.
+### API Client Structure
 
-## Project Structure
+The integration is built around a centralized API client that handles all communication with Odoo:
 
-The project is organized as follows:
+```javascript
+// Primary API file
+src/api/odooApiNext.js
 
-```
-/docs
-  ├── getting-started
-  │   └── index.md
-  ├── components
-  │   ├── ComponentA.md
-  │   └── ComponentB.md
-  ├── guides
-  │   ├── installation.md
-  │   └── usage.md
-  ├── api
-  │   ├── endpoints.md
-  │   └── authentication.md
-  └── index.md
+// Helper files
+src/services/axios.js        // HTTP client configuration
+src/stores/                  // Pinia stores for state management
 ```
 
-### Directory Breakdown
+### Core Helper Function
 
-- **/docs**: The main directory containing all documentation files.
-- **/getting-started**: Contains introductory guides for new users.
-- **/components**: Documentation for various components of the project.
-- **/guides**: Detailed guides on installation and usage.
-- **/api**: API documentation, including endpoints and authentication methods.
-- **index.md**: The main entry point for the documentation.
+All Odoo operations use a generic helper function that standardizes API calls:
 
-## Functions
+```javascript
+export async function callOdooModel(model, method, args = [], kwargs = {}) {
+  const payload = {
+    jsonrpc: "2.0",
+    method: "call",
+    params: { model, method, args, kwargs },
+    id: Date.now(),
+  };
 
-The EcoDev Configurator provides the following key functions:
+  const response = await apiClient.post("/web/dataset/call_kw", payload);
+  const { data } = response;
 
-- **Configuration Management**: Easily manage and modify configurations for eco-friendly projects.
-- **User Interface**: A user-friendly interface for navigating through different settings and options.
-- **API Integration**: Seamless integration with various APIs for enhanced functionality.
-- **Documentation**: Comprehensive documentation to assist users in understanding and utilizing the configurator effectively.
-
-## Getting Started
-
-To get started with the EcoDev Configurator, follow these steps:
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/ecodev-configurator.git
-   cd ecodev-configurator
-   ```
-
-2. **Install Dependencies**:
-   Make sure you have Node.js installed, then run:
-   ```bash
-   npm install
-   ```
-
-## Viewing the Documentation
-
-To view the documentation locally, you can use VitePress. Follow these steps:
-
-1. **Navigate to the Documentation Directory**:
-   ```bash
-   cd docs
-   ```
-
-2. **Start the VitePress Server**:
-   ```bash
-   npx vitepress dev
-   ```
-
-3. **Open Your Browser**:
-   Visit `http://localhost:3000` to view the documentation.
-
-## Launching the Project
-
-To launch the EcoDev Configurator, follow these steps:
-
-1. **Build the Project**:
-   ```bash
-   npm run build
-   ```
-
-2. **Serve the Built Files**:
-   You can use a static file server to serve the built files. For example:
-   ```bash
-   npx serve docs/.vitepress/dist
-   ```
-
-3. **Access the Application**:
-   Open your browser and navigate to the server address (e.g., `http://localhost:5000`).
-
-## Contributing
-
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get involved.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-Thank you for using the EcoDev Configurator! We hope this documentation helps you get started and make the most of the project.
+  if (data.error) throw new Error(JSON.stringify(data.error));
+  return data.result;
+}
 ```
 
-### Instructions for Use
-1. **Copy the Markdown**: Copy the above markdown content into your `index.md` file or create a new markdown file in your VitePress documentation directory.
-2. **Customize**: Replace placeholders (like repository links and function descriptions) with actual project details.
-3. **Add Additional Documentation**: As your project grows, consider adding more detailed documentation for each component and guide.
+**Key Benefits:**
 
-This template provides a solid foundation for your VitePress documentation, ensuring users can easily navigate and understand your project.
+- Uses `/web/dataset/call_kw` endpoint for better session cookie compatibility
+- Standardized error handling across all API calls
+- Simplified parameter passing without manual JSON-RPC formatting
+
+## Custom Odoo Models
+
+The application works with several custom Odoo models designed for product configuration:
+
+### Product Categories (`x_product_categories`)
+
+- **Purpose**: Organize products into hierarchical categories
+- **Key Fields**: `x_name`, `x_description`, `x_supercategories_id`, `x_img`, `x_battery`
+- **Usage**: Main navigation structure for the configurator
+
+### Configuration Steps (`x_steps`)
+
+- **Purpose**: Define sequential configuration steps within categories
+- **Key Fields**: `x_name`, `x_position`, `x_choice_type`, `x_product_category_id`
+- **Usage**: Control the configuration flow and user interface behavior
+
+### Configuration Options (`x_options`)
+
+- **Purpose**: Available choices within each configuration step
+- **Key Fields**: `x_name`, `x_description`, `x_price`, `x_step_id`, `x_default`
+- **Usage**: User selections that affect pricing and product specifications
+
+### Constraints (`x_constraints`)
+
+- **Purpose**: Define incompatible option combinations
+- **Key Fields**: `x_option_id`, `x_restricted_option_id`, `x_description`
+- **Usage**: Validation rules to prevent invalid configurations
+
+### Rules (`x_rules`)
+
+- **Purpose**: Calculation and validation logic
+- **Key Fields**: `x_name`, `x_rule_type`, `x_parameter`, `x_category_id`
+- **Usage**: Dynamic pricing and configuration validation
+
+## Core Operations
+
+### Search Functionality
+
+The application implements a comprehensive search across multiple models:
+
+```javascript
+export async function searchAllEntities(keyword) {
+  // Searches across categories, supercategories, steps, and options
+  // Returns structured results with relationship mapping
+}
+```
+
+**Search Features:**
+
+- Case-insensitive matching on names and descriptions
+- Cross-model relationship resolution
+- Categorized result presentation
+
+### Configuration Flow
+
+The typical configuration process follows this pattern:
+
+1. **Category Selection**: User selects a product category
+2. **Step Retrieval**: System loads configuration steps for the category
+3. **Option Loading**: Options are fetched for each step
+4. **Constraint Validation**: System applies constraint rules
+5. **Quote Generation**: Final configuration creates a sales order
+
+### Quote Management
+
+Quote creation is a multi-step process that handles product creation and order line management:
+
+```javascript
+export async function createQuote(quoteData) {
+  // 1. Create sales order header
+  // 2. Process each order line
+  // 3. Create products if they don't exist
+  // 4. Add order lines with proper relationships
+  // 5. Handle rollback on errors
+}
+```
+
+**Key Features:**
+
+- Automatic product creation for new configurations
+- Support for section separators (`line_section`)
+- Comprehensive error handling with rollback
+- Integration with Odoo's sales workflow
+
+## State Management
+
+The application uses Pinia stores to manage Odoo data:
+
+### Software Store Example
+
+```javascript
+// stores/softwareStore.js
+export const useSoftwareStore = defineStore("software", {
+  state: () => ({
+    options: [],
+    loading: false,
+    error: null,
+  }),
+
+  actions: {
+    async loadSoftwareOptions() {
+      const options = await fetchOptionsByCategoryId(SOFTWARE_CATEGORY_ID);
+      this.options = options;
+    },
+  },
+});
+```
+
+## Authentication & Session Management
+
+### Session-Based Authentication
+
+- Uses Odoo's built-in session management
+- Automatic cookie handling for authenticated requests
+- Session validation on protected routes
+
+### Authentication Flow
+
+1. User credentials sent to `/web/session/authenticate`
+2. Session cookie automatically managed by browser
+3. Subsequent API calls include session information
+4. Logout destroys session via `/web/session/destroy`
+
+## Error Handling
+
+### Standardized Error Response
+
+All API errors follow the JSON-RPC 2.0 standard:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": null,
+  "error": {
+    "code": 200,
+    "message": "Odoo Server Error",
+    "data": {
+      "name": "odoo.exceptions.ValidationError",
+      "message": "Error details"
+    }
+  }
+}
+```
+
+### Error Recovery Strategies
+
+- Automatic retry mechanisms for transient failures
+- Rollback operations for incomplete transactions
+- User-friendly error messages with technical details in console
+
+## Performance Optimizations
+
+### Data Fetching Strategies
+
+- Lazy loading of configuration options
+- Filtered queries to reduce payload size
+- Caching of frequently accessed data
+
+### Rate Limiting
+
+- Client-side request throttling
+- Batched operations where possible
+- Optimized query structures
+
+## Integration Patterns
+
+### Domain-Driven Queries
+
+Odoo uses domain filters for complex queries:
+
+```javascript
+// Example: Find options for specific steps
+const domain = [["x_step_id", "in", stepIds]];
+const options = await callOdooModel("x_options", "search_read", [domain]);
+```
+
+### Relationship Handling
+
+- Many2one relationships returned as `[id, 'display_name']` tuples
+- One2many relationships as arrays of IDs
+- Proper field selection to minimize data transfer
+
+### Batch Operations
+
+- Multiple order lines created in a single transaction
+- Bulk constraint checking
+- Efficient product lookups and creation
+
+## Development Environment
+
+### API Configuration
+
+```javascript
+// Environment variables
+VITE_API_BASE_URL=https://your-odoo-instance.com
+VITE_DATABASE=your_database_name
+```
+
+### Testing & Debugging
+
+- Debug functions for model inspection (`getRequiredFields`)
+- Console logging for operation tracking
+- Comprehensive error reporting
+
+## Security Considerations
+
+### Data Protection
+
+- HTTPS-only communication in production
+- Session-based authentication
+- Input validation on both client and server sides
+
+### Access Control
+
+- Odoo's built-in permission system
+- Model-level access restrictions
+- Field-level security where appropriate
+
+## Best Practices
+
+### API Usage
+
+- Always use the centralized `callOdooModel` function
+- Implement proper error handling for all operations
+- Use domain filters instead of client-side filtering
+- Cache results when appropriate
+
+### Performance
+
+- Limit field selection to required data only
+- Use pagination for large datasets
+- Implement progressive loading for complex configurations
+
+### Maintainability
+
+- Keep API functions focused and single-purpose
+- Document custom model relationships
+- Use consistent naming conventions
+- Implement comprehensive logging for debugging
+
+This integration provides a robust foundation for the product configurator while maintaining flexibility for future enhancements
