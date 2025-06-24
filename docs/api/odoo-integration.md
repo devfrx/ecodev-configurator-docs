@@ -1,127 +1,673 @@
-# Project Overview
+# Integrazione Odoo - EcoDev Configurator
 
-Welcome to the **EcoDev Configurator** documentation! This guide will help you understand the structure of the project, its functions, and how to set it up for viewing and launching.
+Questa guida documenta l'integrazione tra l'applicazione EcoDev Configurator e il sistema backend Odoo, incluse le configurazioni, i modelli dati personalizzati e l'architettura API.
 
-## Table of Contents
+## Indice
 
-- [Introduction](#introduction)
-- [Project Structure](#project-structure)
-- [Functions](#functions)
-- [Getting Started](#getting-started)
-- [Viewing the Documentation](#viewing-the-documentation)
-- [Launching the Project](#launching-the-project)
-- [Contributing](#contributing)
-- [License](#license)
+- [Panoramica Architettura](#panoramica-architettura)
+- [Configurazione Backend](#configurazione-backend)
+- [Modelli Dati Personalizzati](#modelli-dati-personalizzati)
+- [API Client](#api-client)
+- [Autenticazione e Sessioni](#autenticazione-e-sessioni)
+- [Strutture Dati](#strutture-dati)
+- [Operazioni CRUD](#operazioni-crud)
+- [Gestione Errori](#gestione-errori)
+- [Rate Limiting](#rate-limiting)
+- [Sicurezza](#sicurezza)
+- [Configurazione Ambiente](#configurazione-ambiente)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
 
-## Introduction
+## Panoramica Architettura
 
-The EcoDev Configurator is designed to streamline the configuration process for eco-friendly projects. This documentation provides a comprehensive overview of the project structure and its functionalities.
+L'applicazione EcoDev Configurator si integra con Odoo 16+ utilizzando il protocollo JSON-RPC 2.0 per tutte le operazioni di backend.
 
-## Project Structure
+### Stack Tecnologico
 
-The project is organized as follows:
+- **Backend**: Odoo 16+ (ERP/CRM)
+- **Database**: PostgreSQL (gestito da Odoo)
+- **Protocollo**: JSON-RPC 2.0
+- **Endpoint**: `/web/dataset/call_kw`
+- **Autenticazione**: Session-based con cookie
+
+### Architettura di Comunicazione
 
 ```
-/docs
-  ├── getting-started
-  │   └── index.md
-  ├── components
-  │   ├── ComponentA.md
-  │   └── ComponentB.md
-  ├── guides
-  │   ├── installation.md
-  │   └── usage.md
-  ├── api
-  │   ├── endpoints.md
-  │   └── authentication.md
-  └── index.md
+Vue.js App ←→ Axios Client ←→ Odoo JSON-RPC ←→ PostgreSQL
+    ↓              ↓              ↓           ↓
+ Frontend      API Layer     Backend     Database
 ```
 
-### Directory Breakdown
+## Configurazione Backend
 
-- **/docs**: The main directory containing all documentation files.
-- **/getting-started**: Contains introductory guides for new users.
-- **/components**: Documentation for various components of the project.
-- **/guides**: Detailed guides on installation and usage.
-- **/api**: API documentation, including endpoints and authentication methods.
-- **index.md**: The main entry point for the documentation.
+### Requisiti Sistema
 
-## Functions
+- Odoo 16+ installato e configurato
+- Database PostgreSQL
+- Moduli personalizzati installati
+- Permessi utente configurati
 
-The EcoDev Configurator provides the following key functions:
+### Variabili Ambiente
 
-- **Configuration Management**: Easily manage and modify configurations for eco-friendly projects.
-- **User Interface**: A user-friendly interface for navigating through different settings and options.
-- **API Integration**: Seamless integration with various APIs for enhanced functionality.
-- **Documentation**: Comprehensive documentation to assist users in understanding and utilizing the configurator effectively.
+```bash
+# .env
+VITE_API_BASE_URL=https://your-odoo-instance.com
+VITE_DATABASE=your_database_name
+```
 
-## Getting Started
+### URL Endpoint Principali
 
-To get started with the EcoDev Configurator, follow these steps:
+```javascript
+// Configurazione base
+const API_BASE_URL = process.env.VITE_API_BASE_URL;
+const DATABASE = process.env.VITE_DATABASE;
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/ecodev-configurator.git
-   cd ecodev-configurator
-   ```
+// Endpoint utilizzati
+POST / web / session / authenticate; // Login
+POST / web / session / get_session_info; // Info sessione
+POST / web / session / destroy; // Logout
+POST / web / dataset / call_kw; // Operazioni CRUD
+POST / web / binary / upload_attachment; // Upload file
+```
 
-2. **Install Dependencies**:
-   Make sure you have Node.js installed, then run:
-   ```bash
-   npm install
-   ```
+## Modelli Dati Personalizzati
 
-## Viewing the Documentation
+L'applicazione utilizza i seguenti modelli custom in Odoo:
 
-To view the documentation locally, you can use VitePress. Follow these steps:
+### x_supercategories
 
-1. **Navigate to the Documentation Directory**:
-   ```bash
-   cd docs
-   ```
+Supercategorie per organizzazione gerarchica prodotti.
 
-2. **Start the VitePress Server**:
-   ```bash
-   npx vitepress dev
-   ```
+**Campi principali:**
 
-3. **Open Your Browser**:
-   Visit `http://localhost:3000` to view the documentation.
+- `id`: ID univoco
+- `x_name`: Nome supercategoria
+- `x_description`: Descrizione
+- `x_img`: Immagine base64
 
-## Launching the Project
+### x_product_categories
 
-To launch the EcoDev Configurator, follow these steps:
+Categorie prodotto con relazione alle supercategorie.
 
-1. **Build the Project**:
-   ```bash
-   npm run build
-   ```
+**Campi principali:**
 
-2. **Serve the Built Files**:
-   You can use a static file server to serve the built files. For example:
-   ```bash
-   npx serve docs/.vitepress/dist
-   ```
+- `id`: ID univoco
+- `x_name`: Nome categoria
+- `x_description`: Descrizione
+- `x_supercategories_id`: Relazione Many2One con supercategorie
+- `x_img`: Immagine base64
+- `x_battery`: Flag per prodotti con batterie
+- `x_software`: Flag per prodotti software
+- `x_position`: Posizione ordinamento
 
-3. **Access the Application**:
-   Open your browser and navigate to the server address (e.g., `http://localhost:5000`).
+### x_steps
 
-## Contributing
+Step di configurazione per ogni categoria.
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get involved.
+**Campi principali:**
 
-## License
+- `id`: ID univoco
+- `x_name`: Nome step
+- `x_title`: Titolo visualizzato
+- `x_position`: Posizione nell'ordine
+- `x_choice_type`: Tipo scelta (single_choice, multiple_choice)
+- `x_product_category_id`: Relazione Many2One con categoria
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+### x_options
+
+Opzioni di configurazione per ogni step.
+
+**Campi principali:**
+
+- `id`: ID univoco
+- `x_name`: Codice opzione
+- `x_name_readable`: Nome leggibile
+- `x_description`: Descrizione dettagliata
+- `x_price`: Prezzo opzione
+- `x_default`: Flag opzione di default
+- `x_step_id`: Relazione Many2One con step
+- `x_code`: Codice specifico per logiche business
+
+### x_constraints
+
+Vincoli tra opzioni incompatibili.
+
+**Campi principali:**
+
+- `id`: ID univoco
+- `x_option_id`: Opzione sorgente
+- `x_restricted_option_id`: Opzione target vincolata
+- `x_description`: Descrizione vincolo
+
+### x_rules
+
+Regole business per calcoli e validazioni.
+
+**Campi principali:**
+
+- `id`: ID univoco
+- `x_name`: Nome regola
+- `x_category_id`: Categoria di appartenenza
+- `x_step_id`: Step associato
+- `x_option_id`: Opzione associata
+- `x_section`: Sezione regola
+- `x_rule_type`: Tipo regola
+- `x_parameter`: Parametro numerico
+
+## API Client
+
+### Helper Principale
+
+```javascript
+// src/api/odooApiNext.js
+export async function callOdooModel(model, method, args = [], kwargs = {}) {
+  const payload = {
+    jsonrpc: "2.0",
+    method: "call",
+    params: {
+      model,
+      method,
+      args,
+      kwargs,
+    },
+    id: Date.now(),
+  };
+
+  const response = await apiClient.post("/web/dataset/call_kw", payload);
+  const { data } = response;
+
+  if (data.error) throw new Error(JSON.stringify(data.error));
+  return data.result;
+}
+```
+
+### Configurazione Axios
+
+```javascript
+// src/services/axios.js
+import axios from "axios";
+
+const apiClient = axios.create({
+  baseURL: process.env.VITE_API_BASE_URL,
+  withCredentials: true, // Per gestione cookie sessione
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+```
+
+## Autenticazione e Sessioni
+
+### Login Process
+
+```javascript
+// Autenticazione utente
+export async function authenticate(username, password) {
+  const payload = {
+    jsonrpc: "2.0",
+    method: "call",
+    params: {
+      db: DATABASE,
+      login: username,
+      password: password,
+    },
+  };
+
+  const response = await apiClient.post("/web/session/authenticate", payload);
+  return response.data.result;
+}
+```
+
+### Gestione Sessione
+
+- **Cookie automatici**: Gestiti da Axios con `withCredentials: true`
+- **Timeout sessione**: Gestito automaticamente da Odoo
+- **Logout sicuro**: Distruzione sessione lato server
+
+## Strutture Dati
+
+### Formato Richieste JSON-RPC
+
+```javascript
+// Struttura standard richiesta
+{
+  "jsonrpc": "2.0",
+  "method": "call",
+  "params": {
+    "model": "x_product_categories",
+    "method": "search_read",
+    "args": [[]],
+    "kwargs": {
+      "fields": ["id", "x_name", "x_description"],
+      "order": "x_position asc"
+    }
+  },
+  "id": 1234567890
+}
+```
+
+### Formato Risposte
+
+```javascript
+// Risposta successo
+{
+  "jsonrpc": "2.0",
+  "id": 1234567890,
+  "result": [
+    {
+      "id": 1,
+      "x_name": "Category Name",
+      "x_description": "Description"
+    }
+  ]
+}
+
+// Risposta errore
+{
+  "jsonrpc": "2.0",
+  "id": 1234567890,
+  "error": {
+    "code": 200,
+    "message": "Odoo Server Error",
+    "data": {
+      "name": "ValidationError",
+      "message": "Error details"
+    }
+  }
+}
+```
+
+## Operazioni CRUD
+
+### Lettura Dati (search_read)
+
+```javascript
+// Recupera tutte le categorie
+export async function fetchCategories() {
+  return await callOdooModel("x_product_categories", "search_read", [[]]);
+}
+
+// Recupera con filtri
+export async function fetchSteps(categoryId) {
+  return await callOdooModel(
+    "x_steps",
+    "search_read",
+    [[["x_product_category_id.id", "=", categoryId]]],
+    { order: "x_position asc" }
+  );
+}
+```
+
+### Creazione Record (create)
+
+```javascript
+// Crea nuovo partner
+export async function createPartner(partnerData) {
+  return await callOdooModel("res.partner", "create", [partnerData]);
+}
+
+// Crea preventivo
+export async function createQuote(quoteData) {
+  const { order_line, ...orderData } = quoteData;
+
+  // Step 1: Crea preventivo
+  const orderId = await callOdooModel("sale.order", "create", [orderData]);
+
+  // Step 2: Aggiungi righe
+  for (const line of order_line) {
+    await callOdooModel("sale.order.line", "create", [
+      {
+        ...line,
+        order_id: orderId,
+      },
+    ]);
+  }
+
+  return orderId;
+}
+```
+
+### Ricerca Universale
+
+```javascript
+// Ricerca attraverso multiple entità
+export async function searchAllEntities(keyword) {
+  const domainName = [
+    "|",
+    ["x_name", "ilike", keyword],
+    ["x_description", "ilike", keyword],
+  ];
+
+  // Cerca in supercategorie
+  const superCategories = await callOdooModel(
+    "x_supercategories",
+    "search_read",
+    [domainName]
+  );
+
+  // Cerca in categorie
+  const categories = await callOdooModel(
+    "x_product_categories",
+    "search_read",
+    [domainName]
+  );
+
+  return { superCategories, categories };
+}
+```
+
+## Gestione Errori
+
+### Tipi di Errore
+
+1. **Errori di Rete**: Connessione, timeout
+2. **Errori Autenticazione**: Credenziali invalide, sessione scaduta
+3. **Errori Validazione**: Dati non validi, vincoli violati
+4. **Errori Server**: Errori interni Odoo
+
+### Gestione Errori nell'API Client
+
+```javascript
+export async function callOdooModel(model, method, args = [], kwargs = {}) {
+  try {
+    const response = await apiClient.post("/web/dataset/call_kw", payload);
+    const { data } = response;
+
+    if (data.error) {
+      throw new Error(JSON.stringify(data.error));
+    }
+
+    return data.result;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      // Gestisci errore autenticazione
+      authStore.logout();
+      router.push("/login");
+    }
+
+    console.error("API Error:", error);
+    throw error;
+  }
+}
+```
+
+### Retry Logic
+
+```javascript
+// Implementazione retry automatico
+async function apiCallWithRetry(fn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+
+      // Exponential backoff
+      await new Promise((resolve) =>
+        setTimeout(resolve, Math.pow(2, i) * 1000)
+      );
+    }
+  }
+}
+```
+
+## Rate Limiting
+
+### Configurazione Client-Side
+
+```javascript
+// Rate limiting per prevenire sovraccarico server
+class RateLimiter {
+  constructor() {
+    this.requests = new Map();
+    this.maxConcurrent = 10;
+    this.delayBetweenRequests = 1000;
+  }
+
+  async throttle(endpoint) {
+    const now = Date.now();
+    const lastRequest = this.requests.get(endpoint);
+
+    if (lastRequest && now - lastRequest < this.delayBetweenRequests) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, this.delayBetweenRequests)
+      );
+    }
+
+    this.requests.set(endpoint, now);
+  }
+}
+```
+
+## Sicurezza
+
+### Protezioni Implementate
+
+1. **HTTPS obbligatorio** in produzione
+2. **Cookie HttpOnly** per sessioni
+3. **CSRF Protection** via Odoo
+4. **Input Validation** client e server
+5. **SQL Injection Protection** via ORM Odoo
+
+### Best Practices
+
+```javascript
+// Sanitizzazione input
+function sanitizeInput(input) {
+  if (typeof input !== "string") return input;
+  return input.trim().replace(/[<>]/g, "");
+}
+
+// Validazione domini ricerca
+function validateSearchDomain(domain) {
+  const allowedFields = ["x_name", "x_description", "id"];
+  return domain.filter((condition) => {
+    if (Array.isArray(condition) && condition.length === 3) {
+      return allowedFields.includes(condition[0]);
+    }
+    return true;
+  });
+}
+```
+
+## Configurazione Ambiente
+
+### Sviluppo
+
+```bash
+# .env.development
+VITE_API_BASE_URL=https://test.odoo-instance.com
+VITE_DATABASE=test_database
+```
+
+### Produzione
+
+```bash
+# .env.production
+VITE_API_BASE_URL=https://production.odoo-instance.com
+VITE_DATABASE=production_database
+```
+
+### Permessi Utente Odoo
+
+```python
+# Permessi minimi richiesti
+{
+    'read': [
+        'x_product_categories',
+        'x_supercategories',
+        'x_steps',
+        'x_options',
+        'x_constraints',
+        'x_rules',
+        'sale.order',
+        'res.partner'
+    ],
+    'write': [
+        'sale.order',
+        'sale.order.line',
+        'res.partner'
+    ],
+    'create': [
+        'sale.order',
+        'sale.order.line',
+        'res.partner',
+        'product.product'
+    ]
+}
+```
+
+## Testing
+
+### Test API Calls
+
+```javascript
+// Test helper per chiamate API
+export async function testApiConnection() {
+  try {
+    const result = await callOdooModel("res.users", "search_read", [[]], {
+      fields: ["id", "name"],
+      limit: 1,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// Test autenticazione
+export async function testAuthentication(username, password) {
+  try {
+    const sessionInfo = await authenticate(username, password);
+    return sessionInfo.uid
+      ? { success: true, uid: sessionInfo.uid }
+      : { success: false };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+```
+
+### Test Integrazione
+
+```javascript
+// Test completo workflow
+describe("Odoo Integration", () => {
+  test("should fetch categories successfully", async () => {
+    const categories = await fetchCategories();
+    expect(Array.isArray(categories)).toBe(true);
+    expect(categories.length).toBeGreaterThan(0);
+  });
+
+  test("should create quote successfully", async () => {
+    const quoteData = {
+      partner_id: 123,
+      order_line: [
+        {
+          name: "TEST-PRODUCT",
+          product_uom_qty: 1,
+          price_unit: 100,
+        },
+      ],
+    };
+
+    const orderId = await createQuote(quoteData);
+    expect(typeof orderId).toBe("number");
+  });
+});
+```
+
+## Troubleshooting
+
+### Problemi Comuni
+
+#### 1. Errori di Connessione
+
+```javascript
+// Verifica connessione
+Error: Network Error
+Soluzione: Verificare URL API e connessione internet
+
+// CORS Errors
+Error: Access to XMLHttpRequest has been blocked by CORS policy
+Soluzione: Configurare CORS su server Odoo
+```
+
+#### 2. Errori Autenticazione
+
+```javascript
+// Credenziali invalide
+Error: {"code": 100, "message": "AccessDenied"}
+Soluzione: Verificare username/password e permessi utente
+
+// Sessione scaduta
+Error: {"code": 200, "message": "SessionExpired"}
+Soluzione: Re-autenticazione automatica
+```
+
+#### 3. Errori Modelli
+
+```javascript
+// Modello non trovato
+Error: {"name": "ValueError", "message": "Model 'x_custom_model' does not exist"}
+Soluzione: Verificare installazione moduli custom
+
+// Campo non esistente
+Error: {"name": "KeyError", "message": "Field 'x_custom_field' does not exist"}
+Soluzione: Verificare definizione campi nel modello
+```
+
+### Debug Tools
+
+```javascript
+// Logger per debugging
+const API_DEBUG = process.env.NODE_ENV === "development";
+
+function logApiCall(model, method, args) {
+  if (API_DEBUG) {
+    console.group(`API Call: ${model}.${method}`);
+    console.log("Args:", args);
+    console.log("Timestamp:", new Date().toISOString());
+    console.groupEnd();
+  }
+}
+```
+
+### Monitoring
+
+```javascript
+// Monitoraggio performance
+class ApiMonitor {
+  constructor() {
+    this.stats = {
+      totalCalls: 0,
+      errors: 0,
+      avgResponseTime: 0,
+    };
+  }
+
+  recordCall(duration, success) {
+    this.stats.totalCalls++;
+    if (!success) this.stats.errors++;
+
+    this.stats.avgResponseTime = (this.stats.avgResponseTime + duration) / 2;
+  }
+
+  getStats() {
+    return {
+      ...this.stats,
+      errorRate: this.stats.errors / this.stats.totalCalls,
+    };
+  }
+}
+```
 
 ---
 
-Thank you for using the EcoDev Configurator! We hope this documentation helps you get started and make the most of the project.
-```
+## Risorse Aggiuntive
 
-### Instructions for Use
-1. **Copy the Markdown**: Copy the above markdown content into your `index.md` file or create a new markdown file in your VitePress documentation directory.
-2. **Customize**: Replace placeholders (like repository links and function descriptions) with actual project details.
-3. **Add Additional Documentation**: As your project grows, consider adding more detailed documentation for each component and guide.
+- [Documentazione Odoo JSON-RPC](https://www.odoo.com/documentation/16.0/developer/reference/external_api.html)
+- [Configurazione CORS Odoo](https://www.odoo.com/documentation/16.0/administration/install/deploy.html)
+- [Gestione Sessioni Odoo](https://www.odoo.com/documentation/16.0/developer/reference/backend/session.html)
 
-This template provides a solid foundation for your VitePress documentation, ensuring users can easily navigate and understand your project.
+_Ultimo aggiornamento: Giugno 2025_
